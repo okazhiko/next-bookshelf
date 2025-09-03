@@ -96,7 +96,7 @@ export default function Bookshelf(): JSX.Element {
     loadData(0, width/cell, 0, height/cell)
     drawGrid(aryData)
 
-    const zoom = d3.zoom().scaleExtent([0.1,10]).on('zoom', (event: any)=>{
+    const zoom = d3.zoom<SVGSVGElement, unknown>().scaleExtent([0.1,10]).on('zoom', (event: any)=>{
       const updatedScaleX = event.transform.rescaleX(scaleX)
       const updatedScaleY = event.transform.rescaleY(scaleY)
       const dx = updatedScaleX.domain(), dy = updatedScaleY.domain()
@@ -109,14 +109,20 @@ export default function Bookshelf(): JSX.Element {
       if(tx!==event.transform.x || ty!==event.transform.y){ 
         const t=event.transform; 
         const w=d3.zoomIdentity.translate(tx,ty).scale(t.k); 
-        d3.select(svg.node()).call(zoom.transform, w) 
+        const svgNode = svg.node()
+        if (svgNode) {
+          d3.select(svgNode).call(zoom.transform as any, w)
+        }
       }
     })
 
-    svg.call(zoom).on('wheel', (e: any)=>e.preventDefault())
+    svg.call(zoom as any).on('wheel', (e: any)=>e.preventDefault())
 
     container.innerHTML = ''
-    container.append(svg.node())
+    const svgNode = svg.node()
+    if (svgNode) {
+      container.append(svgNode)
+    }
 
     const onResize = (): void => { window.location.reload() }
     window.addEventListener('resize', onResize)
