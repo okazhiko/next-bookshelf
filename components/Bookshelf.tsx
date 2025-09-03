@@ -16,8 +16,9 @@ export default function Bookshelf(): JSX.Element {
     if(!container) return
 
     function computeLayout(){
-      const w = window.innerWidth || 800
-      const h = window.innerHeight || 600
+      // vw: 90, vh: h1要素を除いた残りのスペース
+      const w = Math.floor(window.innerWidth * 0.9) || 800
+      const h = Math.floor((window.innerHeight - 80) * 0.9) || 600 // h1要素の高さを80pxとして計算
       const cell = Math.max(10, Math.floor(Math.min(w, h) / 2))
       return { width: cell*2, height: cell*2, cell }
     }
@@ -129,5 +130,5 @@ export default function Bookshelf(): JSX.Element {
     return (): void => window.removeEventListener('resize', onResize)
   },[])
   
-  return <div ref={ref} style={{display:'flex',justifyContent:'center',alignItems:'center',height:'100vh'}} />
+  return <div ref={ref} style={{width:'90vw',height:'calc(90vh - 80px)',display:'flex',justifyContent:'center',alignItems:'center'}} />
 }
