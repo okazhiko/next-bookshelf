@@ -50,7 +50,8 @@ export function useBookshelfD3() {
           title: book.title, 
           author: book.author,
           page_number: book.page_number,
-          color: book.color
+          color: book.color,
+          category: book.category
         }
       }
       return null
