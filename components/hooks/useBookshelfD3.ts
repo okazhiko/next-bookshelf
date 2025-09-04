@@ -41,7 +41,13 @@ export function useBookshelfD3() {
       const wx = wrap10(x), wy = wrap10(y)
       const id = (wy - 1) * 10 + wx
       const info = bookIdMap.get(id)
-      if (info && info.title && info.author) return { id, title: info.title, author: info.author }
+      if (info && info.title && info.author) return { 
+        id, 
+        title: info.title, 
+        author: info.author,
+        page_number: info.page_number,
+        color: info.color
+      }
       return null
     }
     function setValue(x: number, y: number, bookInfo: BookInfo | null): void { mapData.set(getKey(x, y), bookInfo) }
@@ -79,27 +85,47 @@ export function useBookshelfD3() {
       }
       g.selectAll('*').remove()
 
-      // タイルを描画
-      const tiles = g.selectAll('g.tile').data(render)
-      tiles.enter().append('g').attr('class', 'tile')
-        .each(function (d: any) {
-          const tileGroup = d3.select(this)
-          const rectX = scaleX(d.rx)
-          const rectY = scaleY(d.ry)
-          const centerX = rectX + cell / 2
+      // 行ごとにタイルをグループ化して連続配置
+      const rowGroups = new Map<number, Array<{ bookInfo: BookInfo | null, rx: number, ry: number }>>()
+      render.forEach(item => {
+        if (!rowGroups.has(item.ry)) {
+          rowGroups.set(item.ry, [])
+        }
+        rowGroups.get(item.ry)!.push(item)
+      })
+
+      // 各行を処理
+      rowGroups.forEach((rowItems, rowY) => {
+        // 行内のアイテムをx座標でソート
+        rowItems.sort((a, b) => a.rx - b.rx)
+        
+        let currentX = 0 // 累積X位置
+        
+        rowItems.forEach((item, index) => {
+          const tileGroup = g.append('g').attr('class', 'tile')
+          const rectY = scaleY(rowY)
+          
+          // page_numberに基づいてタイルの横幅を調整
+          const baseWidth = 32
+          const widthMultiplier = item.bookInfo ? item.bookInfo.page_number / 100 : 1
+          const tileWidth = Math.max(baseWidth, baseWidth * widthMultiplier)
+          
+          // 連続配置のためのX位置計算
+          const rectX = currentX
+          const centerX = rectX + tileWidth / 2
           const centerY = rectY + cell / 2
 
           // タイルの背景
           tileGroup.append('rect')
             .attr('x', rectX)
             .attr('y', rectY)
-            .attr('width', cell)
+            .attr('width', tileWidth)
             .attr('height', cell)
-            .attr('fill', '#e99')
+            .attr('fill', item.bookInfo ? item.bookInfo.color : '#e99')
             .attr('stroke', '#fff')
             .attr('stroke-width', '2')
 
-          if (d.bookInfo) {
+          if (item.bookInfo) {
             // 3:1の比率でタイトルと著者を配置
             const titleHeight = cell * 0.75  // 75% (3/4)
             const authorHeight = cell * 0.25  // 25% (1/4)
@@ -108,9 +134,9 @@ export function useBookshelfD3() {
 
             // タイトルを縦書きで描画
             const titleLines = []
-            const maxCharsPerLine = Math.floor(cell / 8)
-            for (let i = 0; i < d.bookInfo.title.length; i += maxCharsPerLine) {
-              titleLines.push(d.bookInfo.title.slice(i, i + maxCharsPerLine))
+            const maxCharsPerLine = Math.floor(tileWidth / 8)
+            for (let i = 0; i < item.bookInfo.title.length; i += maxCharsPerLine) {
+              titleLines.push(item.bookInfo.title.slice(i, i + maxCharsPerLine))
             }
 
             titleLines.forEach((line, i) => {
@@ -127,8 +153,8 @@ export function useBookshelfD3() {
 
             // 著者を縦書きで描画
             const authorLines = []
-            for (let i = 0; i < d.bookInfo.author.length; i += maxCharsPerLine) {
-              authorLines.push(d.bookInfo.author.slice(i, i + maxCharsPerLine))
+            for (let i = 0; i < item.bookInfo.author.length; i += maxCharsPerLine) {
+              authorLines.push(item.bookInfo.author.slice(i, i + maxCharsPerLine))
             }
 
             authorLines.forEach((line, i) => {
@@ -151,9 +177,13 @@ export function useBookshelfD3() {
               .attr('font-size', '10px')
               .attr('fill', '#999')
               .attr('dy', '0.35em')
-              .text(((d.ry - 1) * 10 + d.rx))
+              .text(((rowY - 1) * 10 + item.rx))
           }
+          
+          // 次のタイルの位置を更新
+          currentX += tileWidth
         })
+      })
     }
 
     loadData(0, width / cell, 0, height / cell)

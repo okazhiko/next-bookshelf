@@ -2,6 +2,8 @@ export interface BookInfo {
   id: number
   title: string
   author: string
+  page_number: number
+  color: string
 }
 
 export interface TileProps {
