@@ -2,9 +2,9 @@ import { useEffect, useRef } from 'react'
 import * as d3 from 'd3'
 import BOOKS from '../BOOKS'
 import { BookInfo } from '../types'
-// wrap10関数を削除し、直接的な座標システムを使用
+import Shelf from '../Shelf'
 
-export function useBookshelfD3() {
+export function useLaneD3() {
   const ref = useRef<HTMLDivElement>(null)
   
   useEffect(() => {
@@ -235,7 +235,7 @@ export function useBookshelfD3() {
               const authorY = rectY + titleHeight + authorHeight / 2
 
               // タイトルを縦書きで描画
-              const titleLines = []
+              const titleLines: string[] = []
               const maxCharsPerLine = Math.floor(tileWidth / 8)
               for (let i = 0; i < item.bookInfo.title.length; i += maxCharsPerLine) {
                 titleLines.push(item.bookInfo.title.slice(i, i + maxCharsPerLine))
@@ -254,7 +254,7 @@ export function useBookshelfD3() {
               })
 
               // 著者を縦書きで描画
-              const authorLines = []
+              const authorLines: string[] = []
               for (let i = 0; i < item.bookInfo.author.length; i += maxCharsPerLine) {
                 authorLines.push(item.bookInfo.author.slice(i, i + maxCharsPerLine))
               }
