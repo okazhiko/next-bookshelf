@@ -130,6 +130,27 @@ export function useLaneD3() {
       return v
     }
 
+    // 仮想化対応：可視領域の計算
+    function calculateVisibleRange(transform: any) {
+      const scale = transform.k
+      const translateX = transform.x
+      const translateY = transform.y
+      
+      // 可視領域の計算（余裕を持って+2）
+      const visibleShelfStart = Math.max(0, Math.floor(-translateX / (shelfWidth + shelfGap)) - 2)
+      const visibleShelfEnd = Math.min(totalShelves - 1, Math.ceil((-translateX + width) / (shelfWidth + shelfGap)) + 2)
+      
+      const visibleRowStart = Math.max(0, Math.floor(-translateY / cell) - 2)
+      const visibleRowEnd = Math.ceil((-translateY + height) / cell) + 2
+      
+      return {
+        shelfStart: visibleShelfStart,
+        shelfEnd: visibleShelfEnd,
+        rowStart: visibleRowStart,
+        rowEnd: visibleRowEnd
+      }
+    }
+
     function loadData(shelfX0: number, shelfX1: number, rowY0: number, rowY1: number): void {
       if (categories.length === 0) {
         return
@@ -161,7 +182,9 @@ export function useLaneD3() {
     }
 
     function drawGrid(data: Array<{ shelfIndex: number, rowIndex: number, bookIndex: number, bookInfo: BookInfo | null }>): void {
-      g.selectAll('*').remove()
+      // パフォーマンス最適化：可視要素のみ削除・再描画
+      g.selectAll('.shelf').remove()
+      g.selectAll('.book').remove()
 
       // 棚ごとにグループ化
       const shelfGroups = new Map<number, Array<{ shelfIndex: number, rowIndex: number, bookIndex: number, bookInfo: BookInfo | null }>>()
@@ -172,13 +195,14 @@ export function useLaneD3() {
         shelfGroups.get(item.shelfIndex)!.push(item)
       })
 
-      // 各棚を描画
+      // 各棚を描画（バッチ処理で効率化）
       shelfGroups.forEach((shelfItems, shelfIndex) => {
         const category = categories[shelfIndex % categories.length]
         const shelfX = shelfIndex * (shelfWidth + shelfGap)
         
         // 棚のタイトルを描画
         g.append('text')
+          .attr('class', 'shelf-title')
           .attr('x', shelfX + shelfWidth / 2)
           .attr('y', 30)
           .attr('text-anchor', 'middle')
@@ -203,9 +227,9 @@ export function useLaneD3() {
           
           let currentX = shelfX // 棚内での累積X位置
           
-          rowItems.forEach((item) => {
-            const tileGroup = g.append('g').attr('class', 'tile')
-            const rectY = 50 + rowIndex * cell // タイトル分のオフセット + 行の高さ
+                      rowItems.forEach((item) => {
+              const tileGroup = g.append('g').attr('class', 'book')
+              const rectY = 50 + rowIndex * cell // タイトル分のオフセット + 行の高さ
             
             // page_numberに基づいてタイルの横幅を調整
             const baseWidth = 32
@@ -298,10 +322,17 @@ export function useLaneD3() {
     }
 
     const zoom = d3.zoom<SVGSVGElement, unknown>().scaleExtent([0.1, 10]).on('zoom', (event: any) => {
-      const updatedScaleX = event.transform.rescaleX(scaleX)
-      const updatedScaleY = event.transform.rescaleY(scaleY)
-      const dx = updatedScaleX.domain(), dy = updatedScaleY.domain()
-      loadData(dx[0], dx[1], dy[0], dy[1])
+      // 仮想化：可視領域のみ計算
+      const visibleRange = calculateVisibleRange(event.transform)
+      
+      // 可視領域のデータのみ読み込み
+      loadData(
+        visibleRange.shelfStart, 
+        visibleRange.shelfEnd, 
+        visibleRange.rowStart, 
+        visibleRange.rowEnd
+      )
+      
       g.attr('transform', event.transform)
       
       // 棚単位での横の無限スクロール
