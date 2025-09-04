@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import * as d3 from 'd3'
 import BOOKS from '../BOOKS'
 import { BookInfo } from '../types'
-import { wrap10 } from '../utils'
+// wrap10関数を削除し、直接的な座標システムを使用
 
 export function useBookshelfD3() {
   const ref = useRef<HTMLDivElement>(null)
@@ -34,19 +34,24 @@ export function useBookshelfD3() {
     const mapData = new Map<string, BookInfo | null>()
     let aryData: Array<{ x: number, y: number, bookInfo: BookInfo | null }> = []
 
-    const bookIdMap = new Map(BOOKS.map(b => [b.id, b]))
+    // 書籍数を動的に取得
+    const totalBooks = BOOKS.length
+    const booksPerRow = Math.ceil(Math.sqrt(totalBooks)) // 正方形に近い配置
+    const totalRows = Math.ceil(totalBooks / booksPerRow)
 
     function getKey(x: number, y: number): string { return `${x},${y}` }
     function calcBookInfo(x: number, y: number): BookInfo | null {
-      const wx = wrap10(x), wy = wrap10(y)
-      const id = (wy - 1) * 10 + wx
-      const info = bookIdMap.get(id)
-      if (info && info.title && info.author) return { 
-        id, 
-        title: info.title, 
-        author: info.author,
-        page_number: info.page_number,
-        color: info.color
+      // 直接的な座標から書籍インデックスを計算
+      const bookIndex = y * booksPerRow + x
+      if (bookIndex >= 0 && bookIndex < totalBooks) {
+        const book = BOOKS[bookIndex]
+        return { 
+          id: book.id, 
+          title: book.title, 
+          author: book.author,
+          page_number: book.page_number,
+          color: book.color
+        }
       }
       return null
     }
@@ -63,10 +68,9 @@ export function useBookshelfD3() {
       const added: Array<{ x: number, y: number, bookInfo: BookInfo | null }> = []
       for (let x = xs; x <= xe; x++) {
         for (let y = ys; y <= ye; y++) {
-          const wx = wrap10(x), wy = wrap10(y)
-          const key = getKey(wx, wy)
+          const key = getKey(x, y)
           if (!mapData.has(key)) {
-            added.push({ x: wx, y: wy, bookInfo: getValue(wx, wy) })
+            added.push({ x, y, bookInfo: getValue(x, y) })
           }
         }
       }
@@ -79,7 +83,7 @@ export function useBookshelfD3() {
       for (const d of data) {
         for (const ox of offsets) {
           for (const oy of offsets) {
-            render.push({ bookInfo: d.bookInfo, rx: (d.x - 1) + ox * 10, ry: (d.y - 1) + oy * 10 })
+            render.push({ bookInfo: d.bookInfo, rx: d.x + ox * booksPerRow, ry: d.y + oy * totalRows })
           }
         }
       }
@@ -177,7 +181,7 @@ export function useBookshelfD3() {
               .attr('font-size', '10px')
               .attr('fill', '#999')
               .attr('dy', '0.35em')
-              .text(((rowY - 1) * 10 + item.rx))
+              .text((rowY * booksPerRow + item.rx))
           }
           
           // 次のタイルの位置を更新
@@ -195,7 +199,7 @@ export function useBookshelfD3() {
       const dx = updatedScaleX.domain(), dy = updatedScaleY.domain()
       loadData(dx[0], dx[1], dy[0], dy[1])
       g.attr('transform', event.transform)
-      const totalX = 10 * cell, totalY = 10 * cell
+      const totalX = booksPerRow * cell, totalY = totalRows * cell
       let tx = event.transform.x, ty = event.transform.y
       if (tx <= -totalX) tx = tx % totalX; if (tx > 0) tx = ((tx % totalX) - totalX)
       if (ty <= -totalY) ty = ty % totalY; if (ty > 0) ty = ((ty % totalY) - totalY)
